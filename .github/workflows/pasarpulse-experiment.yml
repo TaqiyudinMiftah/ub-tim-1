@@ -1,0 +1,68 @@
+name: PasarPulse multimodal experiment
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'pasarpulse/**'
+      - '.github/workflows/pasarpulse-experiment.yml'
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+jobs:
+  build-model-and-package-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout PasarPulse repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: pasarpulse/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r pasarpulse/requirements.txt
+
+      - name: Download public multimodal source repository
+        run: |
+          git clone --depth 1 https://github.com/dzakwanalifi/YELP-BI-2025.git external/YELP-BI-2025
+          find external/YELP-BI-2025 -maxdepth 2 -type f | head -50
+
+      - name: Validate pipeline syntax
+        run: python -m py_compile pasarpulse/run_pipeline.py
+
+      - name: Download MODIS data, build master table, and train models
+        run: |
+          python pasarpulse/run_pipeline.py \
+            --source-root external/YELP-BI-2025 \
+            --output-dir pasarpulse_output
+
+      - name: Create downloadable package
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import shutil
+          root = Path('pasarpulse_output')
+          shutil.make_archive('PasarPulse_Multimodal_Data_Models_Results', 'zip', root)
+          print('Archive bytes:', Path('PasarPulse_Multimodal_Data_Models_Results.zip').stat().st_size)
+          PY
+
+      - name: Upload complete dataset, models, and results
+        uses: actions/upload-artifact@v4
+        with:
+          name: PasarPulse-Multimodal-Data-Models-Results
+          path: |
+            pasarpulse_output/**
+            PasarPulse_Multimodal_Data_Models_Results.zip
+          retention-days: 30
+          compression-level: 6
