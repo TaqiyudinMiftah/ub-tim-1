@@ -7,6 +7,11 @@ on:
     paths:
       - 'pasarpulse/**'
       - '.github/workflows/pasarpulse-experiment.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'pasarpulse/**'
+      - '.github/workflows/pasarpulse-experiment.yml'
 
 permissions:
   contents: read
